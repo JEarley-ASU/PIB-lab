@@ -18,12 +18,12 @@ eV_to_J = 1.602176634e-19
 def main():
     st.set_page_config(
         page_title="Particle in a Box - Quantum Mechanics Explorer",
-        page_icon="🔬",
+        page_icon="⚛️",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
-    st.title("🔬 Particle in a Box - Quantum Mechanics Explorer")
+    st.title("Particle in a Box - Quantum Mechanics Explorer")
     
     # Sidebar controls
     with st.sidebar:
