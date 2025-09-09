@@ -105,36 +105,20 @@ def main():
         plot_3d_wavefunction(nx, ny, nz, Lx, Ly, Lz, E_eV)
         
     elif model == "Spherical":
-        st.subheader("Spherical Box Parameters")
-        n = st.number_input("n (radial):", min_value=1, max_value=10, value=1, step=1)
-        l = st.number_input("l (angular):", min_value=0, max_value=10, value=0, step=1)
-        m = st.number_input("m (magnetic):", min_value=-10, max_value=10, value=0, step=1)
-        R = st.number_input("Sphere radius R (nm):", min_value=0.1, max_value=10.0, value=1.0, step=0.1, format="%.1f")
-        
-        # Validate quantum numbers
-        if abs(m) > l:
-            st.error(f"Invalid quantum state: |m| = {abs(m)} cannot be greater than l = {l}")
-            st.info("The magnetic quantum number m must satisfy: -l ≤ m ≤ l")
+        try:
+            E_joules = energy_spherical_box(n, l, R * 1e-9, mass)
+            E_eV = E_joules / eV_to_J
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Energy", f"{E_eV:.3f} eV")
+            with col2:
+                st.metric("Energy", f"{E_joules:.2e} J")
+        except:
+            st.error("Invalid quantum state combination")
             E_eV = float('inf')
-        elif l >= n:
-            st.error(f"Invalid quantum state: l = {l} must be less than n = {n}")
-            st.info("The angular quantum number l must be less than the radial quantum number n")
-            E_eV = float('inf')
-        else:
-            try:
-                E_joules = energy_spherical_box(n, l, R * 1e-9, mass)
-                E_eV = E_joules / eV_to_J
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Energy", f"{E_eV:.3f} eV")
-                with col2:
-                    st.metric("Energy", f"{E_joules:.2e} J")
-            except Exception as e:
-                st.error(f"Error calculating energy: {str(e)}")
-                E_eV = float('inf')
-        
-        # Always plot, but handle invalid states gracefully
+            
+        # Plot spherical wavefunction
         plot_spherical_wavefunction(n, l, m, R, E_eV)
 
 def plot_1d_wavefunction(n, L, E_eV):
@@ -278,9 +262,6 @@ def plot_spherical_wavefunction(n, l, m, R, E_eV):
     """Plot spherical wavefunction"""
     st.subheader("Spherical Wavefunction Visualization")
     
-    # Check for valid quantum numbers
-    valid_state = abs(m) <= l and l < n
-    
     # Create subplots
     fig = make_subplots(
         rows=2, cols=2,
@@ -295,111 +276,85 @@ def plot_spherical_wavefunction(n, l, m, R, E_eV):
     )
     
     # Radial wavefunction
-    if valid_state and l < n:
-        try:
-            r = np.linspace(0, R, 1000)
-            R_nl = particle_in_spherical_box_radial(r * 1e-9, n, l, R * 1e-9)
-            fig.add_trace(
-                go.Scatter(x=r, y=R_nl, mode='lines', name=f'R_{n}{l}(r)',
-                          line=dict(color='blue', width=2), fill='tonexty',
-                          fillcolor='rgba(0,0,255,0.3)'),
-                row=1, col=1
-            )
-        except:
-            fig.add_annotation(
-                text="Radial function calculation error",
-                x=0.5, y=0.5, xref="x domain", yref="y domain",
-                showarrow=False, row=1, col=1
-            )
-    else:
-        error_msg = "Invalid quantum numbers"
-        if abs(m) > l:
-            error_msg = f"|m|={abs(m)} > l={l}"
-        elif l >= n:
-            error_msg = f"l={l} ≥ n={n}"
-            
+    r = np.linspace(0, R, 1000)
+    try:
+        R_nl = particle_in_spherical_box_radial(r * 1e-9, n, l, R * 1e-9)
+        fig.add_trace(
+            go.Scatter(x=r, y=R_nl, mode='lines', name=f'R_{n}{l}(r)',
+                      line=dict(color='blue', width=2), fill='tonexty',
+                      fillcolor='rgba(0,0,255,0.3)'),
+            row=1, col=1
+        )
+        fig.update_xaxes(title_text="r (nm)", row=1, col=1)
+        fig.update_yaxes(title_text="R_nl(r)", row=1, col=1)
+    except:
         fig.add_annotation(
-            text=error_msg,
+            text="Radial function not available",
             x=0.5, y=0.5, xref="x domain", yref="y domain",
             showarrow=False, row=1, col=1
         )
     
-    fig.update_xaxes(title_text="r (nm)", row=1, col=1)
-    fig.update_yaxes(title_text="R_nl(r)", row=1, col=1)
-    
     # Angular probability (polar plot)
-    if valid_state and abs(m) <= l:
-        try:
-            theta = np.linspace(0, np.pi, 100)
-            phi = 0  # For visualization, phi doesn't matter for |Y|²
-            Y_lm = sph_harm(m, l, phi, theta)
-            angular_prob = np.abs(Y_lm)**2
-            
-            fig.add_trace(
-                go.Scatterpolar(r=angular_prob, theta=theta*180/np.pi, 
-                               mode='lines', name=f'|Y_{l}^{m}|²',
-                               line=dict(color='red', width=2)),
-                row=1, col=2
-            )
-        except:
-            fig.add_annotation(
-                text="Angular function calculation error",
-                x=0.5, y=0.5, xref="x domain", yref="y domain",
-                showarrow=False, row=1, col=2
-            )
-    else:
+    try:
+        theta = np.linspace(0, np.pi, 100)
+        phi = 0  # For m=0, phi doesn't matter
+        Y_lm = sph_harm(m, l, phi, theta)
+        angular_prob = np.abs(Y_lm)**2
+        
+        fig.add_trace(
+            go.Scatterpolar(r=angular_prob, theta=theta*180/np.pi, 
+                           mode='lines', name=f'|Y_{l}^{m}|²',
+                           line=dict(color='red', width=2)),
+            row=1, col=2
+        )
+    except:
         fig.add_annotation(
-            text=f"Invalid: |m|={abs(m)} > l={l}",
+            text="Angular function not available",
             x=0.5, y=0.5, xref="x domain", yref="y domain",
             showarrow=False, row=1, col=2
         )
     
     # 3D angular shape
-    if valid_state and abs(m) <= l:
-        try:
-            theta_3d = np.linspace(0, np.pi, 30)
-            phi_3d = np.linspace(0, 2*np.pi, 30)
-            THETA, PHI = np.meshgrid(theta_3d, phi_3d)
-            
-            Y_lm_3d = sph_harm(m, l, PHI, THETA)
-            Y_real = np.real(Y_lm_3d)
-            
-            R_surf = np.abs(Y_real)
-            X = R_surf * np.sin(THETA) * np.cos(PHI)
-            Y = R_surf * np.sin(THETA) * np.sin(PHI)
-            Z = R_surf * np.cos(THETA)
-            
-            # Handle the case where Y_real has little variation (like l=0, m=0)
-            if np.max(np.abs(Y_real)) - np.min(np.abs(Y_real)) < 1e-10:
-                # For constant spherical harmonics, use a single color
-                fig.add_trace(
-                    go.Surface(x=X, y=Y, z=Z, 
-                              colorscale=[[0, 'lightblue'], [1, 'lightblue']],
-                              opacity=0.8,
-                              showscale=False,
-                              name=f'Y_{l}^{m}'),
-                    row=2, col=1
-                )
-            else:
-                # For varying spherical harmonics, use the color mapping
-                fig.add_trace(
-                    go.Surface(x=X, y=Y, z=Z, surfacecolor=Y_real,
-                              colorscale='RdBu', opacity=0.8,
-                              showscale=False,
-                              name=f'Y_{l}^{m}'),
-                    row=2, col=1
-                )
-        except Exception as e:
-            fig.add_annotation(
-                text=f"3D shape calculation error",
-                x=0.5, y=0.5, xref="x domain", yref="y domain",
-                showarrow=False, row=2, col=1
+    # 3D angular shape
+    try:
+        theta_3d = np.linspace(0, np.pi, 30)
+        phi_3d = np.linspace(0, 2*np.pi, 30)
+        THETA, PHI = np.meshgrid(theta_3d, phi_3d)
+        
+        Y_lm_3d = sph_harm(m, l, PHI, THETA)
+        Y_real = np.real(Y_lm_3d)
+        
+        R_surf = np.abs(Y_real)
+        X = R_surf * np.sin(THETA) * np.cos(PHI)
+        Y = R_surf * np.sin(THETA) * np.sin(PHI)
+        Z = R_surf * np.cos(THETA)
+        
+        # Handle the case where Y_real has little variation (like l=0, m=0)
+        if np.max(np.abs(Y_real)) - np.min(np.abs(Y_real)) < 1e-10:
+            # For constant spherical harmonics, use a single color
+            fig.add_trace(
+                go.Surface(x=X, y=Y, z=Z, 
+                          colorscale=[[0, 'lightblue'], [1, 'lightblue']],
+                          opacity=0.8,
+                          showscale=False,
+                          name=f'Y_{l}^{m}'),
+                row=2, col=1
             )
-    else:
+        else:
+            # For varying spherical harmonics, use the color mapping
+            fig.add_trace(
+                go.Surface(x=X, y=Y, z=Z, surfacecolor=Y_real,
+                          colorscale='RdBu', opacity=0.8,
+                          showscale=False,
+                          name=f'Y_{l}^{m}'),
+                row=2, col=1
+            )
+            
+    except:
         fig.add_annotation(
-            text=f"Invalid: |m|={abs(m)} > l={l}",
+            text="3D shape not available",
             x=0.5, y=0.5, xref="x domain", yref="y domain",
-            showarrow=False, row=2, col=1
+            showarrow=False, row=2, col=1  # Note: fixed the row/col here too
         )
     
     # Energy level info table
@@ -408,17 +363,12 @@ def plot_spherical_wavefunction(n, l, m, R, E_eV):
         'Value': [n, l, m, f'{R:.1f}', f'{1.0:.2f}']
     }
     
-    if valid_state and E_eV != float('inf'):
+    if E_eV != float('inf'):
         info_data['Parameter'].extend(['Energy (eV)', 'Energy (J)', 'Degeneracy'])
         info_data['Value'].extend([f'{E_eV:.3f}', f'{E_eV * eV_to_J:.2e}', f'{2*l+1}-fold'])
     else:
         info_data['Parameter'].append('Status')
-        if abs(m) > l:
-            info_data['Value'].append(f'Invalid: |m| > l')
-        elif l >= n:
-            info_data['Value'].append(f'Invalid: l ≥ n')
-        else:
-            info_data['Value'].append('Calculation error')
+        info_data['Value'].append('Invalid state')
     
     fig.add_trace(
         go.Table(
