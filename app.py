@@ -331,7 +331,7 @@ def plot_spherical_wavefunction(n, l, m, R, E_eV):
         fig.add_trace(
             go.Surface(x=X, y=Y, z=Z, surfacecolor=Y_real,
                       colorscale='RdBu', opacity=0.8,
-                       showscale=False
+                       showscale=False,
                       name=f'Y_{l}^{m}'),
             row=2, col=1
         )
