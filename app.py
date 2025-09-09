@@ -315,6 +315,7 @@ def plot_spherical_wavefunction(n, l, m, R, E_eV):
         )
     
     # 3D angular shape
+    # 3D angular shape
     try:
         theta_3d = np.linspace(0, np.pi, 30)
         phi_3d = np.linspace(0, 2*np.pi, 30)
@@ -328,18 +329,32 @@ def plot_spherical_wavefunction(n, l, m, R, E_eV):
         Y = R_surf * np.sin(THETA) * np.sin(PHI)
         Z = R_surf * np.cos(THETA)
         
-        fig.add_trace(
-            go.Surface(x=X, y=Y, z=Z, surfacecolor=Y_real,
-                      colorscale='RdBu', opacity=0.8,
-                       showscale=False,
-                      name=f'Y_{l}^{m}'),
-            row=2, col=1
-        )
+        # Handle the case where Y_real has little variation (like l=0, m=0)
+        if np.max(np.abs(Y_real)) - np.min(np.abs(Y_real)) < 1e-10:
+            # For constant spherical harmonics, use a single color
+            fig.add_trace(
+                go.Surface(x=X, y=Y, z=Z, 
+                          colorscale=[[0, 'lightblue'], [1, 'lightblue']],
+                          opacity=0.8,
+                          showscale=False,
+                          name=f'Y_{l}^{m}'),
+                row=2, col=1
+            )
+        else:
+            # For varying spherical harmonics, use the color mapping
+            fig.add_trace(
+                go.Surface(x=X, y=Y, z=Z, surfacecolor=Y_real,
+                          colorscale='RdBu', opacity=0.8,
+                          showscale=False,
+                          name=f'Y_{l}^{m}'),
+                row=2, col=1
+            )
+            
     except:
         fig.add_annotation(
             text="3D shape not available",
             x=0.5, y=0.5, xref="x domain", yref="y domain",
-            showarrow=False, row=2, col=2
+            showarrow=False, row=2, col=1  # Note: fixed the row/col here too
         )
     
     # Energy level info table
