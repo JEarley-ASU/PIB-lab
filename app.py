@@ -253,7 +253,7 @@ def plot_3d_wavefunction(nx, ny, nz, Lx, Ly, Lz, E_eV):
             zaxis_title='z (nm)',
             aspectmode='data'
         ),
-        height=600
+        height=900
     )
     
     st.plotly_chart(fig, use_container_width=True)
